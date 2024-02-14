@@ -74,7 +74,7 @@ class dht_manager:
             leadindex +=1
         
         if namedoesnotexist:
-            return "Failure"
+            return "FAILURE"
         
         #implment successful block
         self._peersocketinfo[self.leader_index]["state"] = self._states[1]
@@ -100,6 +100,36 @@ class dht_manager:
 
         
         #to impement creating DHT
+        
+    
+    def manager_start(self):
+        HOST = "172.27.125.154"  # Standard loopback interface address (localhost)
+        PORT = 4000  # Port to listen on (non-privileged ports are > 1023)
+
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:    
+            s.bind((HOST, PORT))
+            while True:
+                s.listen()
+                conn, addr = s.accept()
+                with conn:
+                    print(f"Connected by {addr}")
+                    while True:
+                        data = conn.recv(1024)
+                        print(f"{str(data, encoding='utf-8')}")
+                        if not data:
+                            break
+                        conn.sendall(data)
+
+    #use fuser -k [PORT]/tcp  to kill processs on a port if u cant reuse it
+
+
+
+manager = dht_manager()
+
+manager.manager_start()
+        
+
+
         
             
 

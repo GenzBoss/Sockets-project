@@ -1,4 +1,5 @@
 #to be implemented
+import sys
 import socket
 import random
 
@@ -101,32 +102,40 @@ class dht_manager:
         
         #to impement creating DHT
         
-    
-    def manager_start(self):
-        HOST = "172.27.125.154"  # Standard loopback interface address (localhost)
-        PORT = 4000  # Port to listen on (non-privileged ports are > 1023)
+            
 
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:    
+
+
+
+        
+    
+    def manager_start(self, PORT):
+        HOST = "192.168.0.94"  # Standard loopback interface address (localhost)
+        
+
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:    
             s.bind((HOST, PORT))
             while True:
-                s.listen()
-                conn, addr = s.accept()
-                with conn:
-                    print(f"Connected by {addr}")
-                    while True:
-                        data = conn.recv(1024)
-                        print(f"{str(data, encoding='utf-8')}")
-                        if not data:
-                            break
-                        conn.sendall(data)
+               # x = input("hey write your command")
+                #if x=="z":
+                 #   exit()
 
+                message, addr = s.recvfrom(1024)
+                print(message)
+                s.sendto(b'Recieved', addr)
+                
     #use fuser -k [PORT]/tcp  to kill processs on a port if u cant reuse it
 
 
 
-manager = dht_manager()
 
-manager.manager_start()
+if len(sys.argv) != 2:
+    print("usage: python .'\'socket.py <port>")
+
+else:
+    PORT = int(sys.argv[1])
+    manager = dht_manager()
+    manager.manager_start(PORT)
         
 
 

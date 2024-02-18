@@ -1,10 +1,18 @@
 #to be implemented
+import sys
 import socket
 import random
-
+import string
+import json
 
 #manager class to create required functions
 class dht_manager:
+
+
+    HOST = "127.0.0.1"  # Standard loopback interface address (localhost)
+    PORT = -1
+
+    s = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
 
     #information of host in the ring network
     _states = ("Free", "Leader", "InDHT")
@@ -16,6 +24,8 @@ class dht_manager:
     dhtset = False
     leader_index = -1
     _peerdhtlist = []
+    _dthpeerinfo = []
+    
 
     
     
@@ -25,7 +35,7 @@ class dht_manager:
 
         #to implement failure block
 
-        for x in self._peersocketarray:
+        for x in self._peersocketinfo:
             if x["name"] == peer_name:
                 return "FAILURE"
 
@@ -59,9 +69,10 @@ class dht_manager:
     
 #-----------------Next Function-------------------------------------------------
 
-    def set_up_dht(self, peer_name, n , year):
+    def set_up_dht(self, peer_name, n , year, sendaddr):
         #to implement failure conditions
-        if n < 3 or len(self._peersocketinfo < n) or self.dhtset == True:
+        if n < 3 or len(self._peersocketinfo) < n or self.dhtset == True:
+            self.s.sendto(b'FAILURE', sendaddr)
             return "FAILURE"
         
         namedoesnotexist = True
@@ -74,57 +85,98 @@ class dht_manager:
             leadindex +=1
         
         if namedoesnotexist:
+            self.s.sendto(B'FAILURE', sendaddr)
             return "FAILURE"
         
         #implment successful block
         self._peersocketinfo[self.leader_index]["state"] = self._states[1]
         self._peerdhtlist.append(self._peersocketinfo[self.leader_index])
 
+        
+
         i = 0
 
-        while i < n:
-            x = random(len(self._peersocketinfo))
+        while i < n-1:
+            x = random.randint(0, len(self._peersocketinfo)-1)
 
             if self._peersocketinfo[x]["state"] == self._states[0]:
-                i -= 1
-                self._peersocketinfo[x]["state"] = self._states[1]
+                i += 1
+                self._peersocketinfo[x]["state"] = self._states[2]
                 self._peerdhtlist.append(self._peersocketinfo[x])
 
         
-        print("SUCCESS")
+        self.s.sendto(b'SUCCESS', sendaddr)
 
         i = 0
 
         for peer in self._peerdhtlist:
-            print("peer{0} {1} {2}\n", i, peer["ipv4addr"], peer["pport"] )
+            ipv4 = peer["ipv4addr"]
+            pport = peer["pport"]
+            print(f"peer{i} {ipv4} {pport}" )
+            self._dthpeerinfo.append([i, ipv4, pport])
+            i +=1
+            
+
+        
+        #print((self._dthpeerinfo))
+        self.s.sendto(json.dumps(self._dthpeerinfo).encode(), sendaddr)
+
 
         
         #to impement creating DHT
         
-    
-    def manager_start(self):
-        HOST = "172.27.125.154"  # Standard loopback interface address (localhost)
-        PORT = 4000  # Port to listen on (non-privileged ports are > 1023)
+            
 
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:    
-            s.bind((HOST, PORT))
-            while True:
-                s.listen()
-                conn, addr = s.accept()
-                with conn:
-                    print(f"Connected by {addr}")
-                    while True:
-                        data = conn.recv(1024)
-                        print(f"{str(data, encoding='utf-8')}")
-                        if not data:
-                            break
-                        conn.sendall(data)
+
+
+
+        
+    
+    def manager_start(self, PORT):
+        self.PORT = PORT
+
+        self.s.bind((self.HOST, PORT))
+        while True:
+            # x = input("hey write your command")
+            #if x=="z":
+            #   exit()
+
+            message, cmdaddr = self.s.recvfrom(1024)
+            print(message.decode())
+            #print(addr)
+                    
+            command = message.decode()
+            spltcmnd = command.split(' ')
+
+            if spltcmnd[0] == 'Register':
+                p_name = spltcmnd[1]
+                p_addrv4 = spltcmnd[2]
+                m_port = int(spltcmnd[3])
+                p_port = int(spltcmnd[4])
+                msg = self.register_peer(p_name, p_addrv4, m_port, p_port)
+                self.s.sendto(msg.encode(), cmdaddr)
+                #print(self._peersocketinfo)
+                
+            if spltcmnd[0] == 'setup-dht':
+                lead_name = spltcmnd[1]
+                n = int(spltcmnd[2])
+                year = spltcmnd[3]
+                msg = self.set_up_dht(lead_name,n,year, cmdaddr )
+                
+
 
     #use fuser -k [PORT]/tcp  to kill processs on a port if u cant reuse it
 
-manager = dht_manager()
 
-manager.manager_start()
+
+
+if len(sys.argv) != 2:
+    print("usage: python .'\'socket.py <port>")
+
+else:
+    PORT = int(sys.argv[1])
+    manager = dht_manager()
+    manager.manager_start(PORT)
         
 
 

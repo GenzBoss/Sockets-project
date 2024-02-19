@@ -2,3 +2,4 @@ Register leader 172.27.125.154 32002 32005
 Register peer0 172.27.125.154 32003 32006
 Register peer1 172.27.125.154 32004 32007
 setup-dht leader 3 1950
+dht-complete leader

@@ -25,6 +25,9 @@ class dht_manager:
     leader_index = -1
     _peerdhtlist = []
     _dthpeerinfo = []
+
+    waitDht = False
+    dhtcompleted = False
     
 
     
@@ -84,9 +87,17 @@ class dht_manager:
                 break
             leadindex +=1
         
-        if namedoesnotexist:
+        #print(self._peersocketinfo[self.leader_index]["ipv4addr"])
+        #print(sendaddr[1])
+
+        #print(self._peersocketinfo[self.leader_index]["mport"] != sendaddr[1])
+
+        if namedoesnotexist or self._peersocketinfo[self.leader_index]["mport"] != sendaddr[1]: 
             self.s.sendto(B'FAILURE', sendaddr)
             return "FAILURE"
+
+
+
         
         #implment successful block
         self._peersocketinfo[self.leader_index]["state"] = self._states[1]
@@ -120,6 +131,20 @@ class dht_manager:
         
         #print((self._dthpeerinfo))
         self.s.sendto(json.dumps(self._dthpeerinfo).encode(), sendaddr)
+
+       
+        while True:
+            message, cmdaddr = self.s.recvfrom(1024)
+        
+            if cmdaddr == sendaddr and message.decode() == 'dht-complete':
+                self.dhtcompleted = True
+                #print("here")
+                print('dht-completed')
+                return
+            else:
+                #print(sendaddr)
+                #print(cmdaddr)
+                self.s.sendto(b'FAILURE', cmdaddr)
 
 
         
@@ -162,7 +187,37 @@ class dht_manager:
                 n = int(spltcmnd[2])
                 year = spltcmnd[3]
                 msg = self.set_up_dht(lead_name,n,year, cmdaddr )
-                
+
+
+
+            if spltcmnd[0] == 'dht-complete':
+                #print(cmdaddr)
+                peer_name = spltcmnd[1] 
+                self.dht_complete(peer_name)
+
+    
+
+    def dht_complete(self, peer_name):
+        
+        index = 0
+        peer_index = -1
+        for x in self._peersocketinfo:
+            if x["name"] == peer_name:
+                namedoesnotexist = False
+                peer_index = index
+                break
+            index +=1
+        
+        sendaddr = ('0',0)
+        if peer_index != -1:
+            sendaddr = (self._peersocketinfo[peer_index]["ipv4addr"], self._peersocketinfo[peer_index]["mport"])
+
+        #print("there")
+        #print(sendaddr)
+        if self.dhtcompleted and peer_index != -1:
+             self.s.sendto(b'SUCCESS', sendaddr) 
+        else:
+             self.s.sendto(b'FAILURE', sendaddr)
 
 
     #use fuser -k [PORT]/tcp  to kill processs on a port if u cant reuse it

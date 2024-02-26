@@ -222,6 +222,41 @@ class dht_manager:
 
     #use fuser -k [PORT]/tcp  to kill processs on a port if u cant reuse it
 
+    def query_dht(self, peer_name):
+
+
+        for x in self._peersocketinfo:
+            if self._registerd == False:
+                #self.s.sendto(b'FAILURE', sendaddr)
+            if self._states != "Free":
+                #self.s.sendto(b'FAILURE', sendaddr)
+
+
+
+
+
+
+
+    # def join_dht(self, peer_name):
+
+
+
+
+
+    # def leave_dht(self, peer_name):
+
+
+    # def dht_rebuilt(self, peer_name, new_leader):
+
+
+
+    # def dht_teardown(self, peer_name):
+
+    # def teardown_complete(self, peer_name):
+
+
+
+
 
 
 

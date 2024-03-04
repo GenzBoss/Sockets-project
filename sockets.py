@@ -17,15 +17,12 @@ class dht_manager:
     #information of host in the ring network
     _states = ("Free", "Leader", "InDHT")  #() is a tuple which cannot be changed
     _peersocketarray = []    #prob useless
-    _states = ("Free", "Leader", "InDHT")  #() is a tuple which cannot be changed
-    _peersocketarray = []    #prob useless
     _peersocketinfo = []
     
 
     #information about dth
     dhtset = False
-    leader_index = -1    #based peersockerinfor index
-    leader_index = -1    #based peersockerinfor index
+    leader_index = -1    #based peersockerinfo index
     _peerdhtlist = []
     _dthpeerinfo = []
 
@@ -70,7 +67,6 @@ class dht_manager:
         }
 
         self._peersocketinfo.append(registerpeer)  #for first run its like [{x1}, {x2}]
-        self._peersocketinfo.append(registerpeer)  #for first run its like [{x1}, {x2}]
 
         return "SUCCESS"
     
@@ -82,7 +78,6 @@ class dht_manager:
             self.s.sendto(b'FAILURE', sendaddr)
             return "FAILURE"
         
-        #which index in the list of peers _peersocketinfo = []
         #which index in the list of peers _peersocketinfo = []
         namedoesnotexist = True
         leadindex = 0

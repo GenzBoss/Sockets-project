@@ -45,15 +45,16 @@ def is_prime(n):
     return True
 
 
+#for the thread so we can have peer communication and manager communication
 def recieve(peer):
 
         while True:      
-            mesg, addr = peer.peersocket.recvfrom(1024)
+            mesg, addr = peer.peersocket.recvfrom(1024)  #it recieves from another peer
             cmnd = mesg.decode()
             spltcmnd = cmnd.split(' ')
             if spltcmnd[0] == 'set-id':
-                ntuple, addr = peer.peersocket.recvfrom(1024)
-                dethpeerlist = json.loads(ntuple.decode())
+                ntuple, addr = peer.peersocket.recvfrom(1024)  
+                dethpeerlist = json.loads(ntuple.decode())  #opposite dump make into object again from bytes 
                 #print(dethpeerlist[1][1])
                 #print(f'{spltcmnd[1]}, {spltcmnd[2]}')
                 peer.set_id(int(spltcmnd[1]), int(spltcmnd[2]), dethpeerlist)
@@ -113,15 +114,15 @@ class peer:
     mport = -1
     ipv4 = ""
 
-    registerd = False
+    registerd = False  #boolean which check if we already registered ourself using command
 
     #-------dth data
-    n = -1
-    i = -1
-    left = -1
-    right = -1
+    n = -1  #number of people in ring
+    i = -1   #index of the current peer in ring
+    left = -1  #index of left peer in ring
+    right = -1  #and right peer in ring index
 
-    dhtinfo = []
+    dhtinfo = []  #all info off peers in ring like name, ipv4add, pport
 
     #------hash table info
 
@@ -154,21 +155,25 @@ class peer:
         
 
     
-    def Leader(self, tuples):
+    def Leader(self, tuples):    #not a python tuple but the idea tuple
         self.i = 0
         self.right = 1
         self.n = len(tuples)
         self.dhtinfo = tuples
-        nextip = self.dhtinfo[self.right][1]
-        port =  self.dhtinfo[self.right][2]
+        nextip = self.dhtinfo[self.right][1]  #ipv4 addres 
+        port =  self.dhtinfo[self.right][2]   #pport
 
-        nextaddr = (nextip,port)
+        nextaddr = (nextip,port)  #now give information to next peer that is suppose to participate in ring
 
-        state = f'set-id {self.right} {self.n}'
+        state = f'set-id {self.right} {self.n}'   # set-id 1 3 for example
 
-        self.peersocket.sendto(state.encode(), nextaddr)
+        self.peersocket.sendto(state.encode(), nextaddr)   #make into bytes
+
+        #the recieve function will handle all the msgs its gonna send
 
         self.peersocket.sendto(json.dumps(self.dhtinfo).encode(), nextaddr)
+
+        #json dumps to send in like object instead of just string
         
 
 
@@ -177,13 +182,13 @@ class peer:
 
 
     def set_id(self, i, n, ntuple):
-        self.i = i
+        self.i = i  #next peer repeating the process
         self.n = n
         self.left = i-1
-        if i+1 < n:
-            self.right = i+1
+        if i+1 < n:                 
+            self.right = i+1  #if not last peer
         else:
-            self.right = 0
+            self.right = 0  #for the last peer what we do
 
         self.dhtinfo = ntuple
         #print(ntuple)
@@ -191,8 +196,8 @@ class peer:
         #print(self.right)
 
         if self.right != 0:
-            nextip = self.dhtinfo[self.right][1]
-            port =  self.dhtinfo[self.right][2]
+            nextip = self.dhtinfo[self.right][1]   #we do what the leader function did
+            port =  self.dhtinfo[self.right][2]     #[0] is name [1] is ipv4 [2] is pport
 
             nextaddr = (nextip,port)
 
@@ -206,7 +211,7 @@ class peer:
             nextip = self.dhtinfo[self.right][1]
             port =  self.dhtinfo[self.right][2]
 
-            nextaddr = (nextip,port)
+            nextaddr = (nextip,port)      #last peer sends to leader peer ring complete msg
             state = f'Ring complete'
             self.peersocket.sendto(state.encode(), nextaddr)
         
@@ -298,7 +303,7 @@ class peer:
 
 
 
-
+#main function the peer like c++
 
 
 if len(sys.argv) != 3:
@@ -307,28 +312,30 @@ if len(sys.argv) != 3:
 
 else:
     
-    managerIP = sys.argv[1]
+    managerIP = sys.argv[1]   #manager ip
     managerPORT = int(sys.argv[2])
 
     register_peer = False
 
-    peerprocess = peer()
+    peerprocess = peer()  #create peer object
 
-    managersocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    managersocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  #socket to talk to manager
 
 
         
     while not peerprocess.registerd:
 
-        message = input()
+        message = input()  #whatever we write when peer is running
 
-        addr = (managerIP,managerPORT)
-        managersocket.sendto(message.encode(), addr)
+        addr = (managerIP,managerPORT)  #from parameters
+        managersocket.sendto(message.encode(), addr)  #sending input to sockets.py manager
 
 
 
-        reciept, addr = managersocket.recvfrom(1024)
+        reciept, addr = managersocket.recvfrom(1024)  #manager usually just sends success/failure
         print(reciept.decode())
+
+        #user our own commanp
 
         handle = message.split(' ')
 
@@ -349,7 +356,7 @@ else:
 
         message = input()
 
-        addr = (managerIP,managerPORT)
+        addr = (managerIP,managerPORT)  #from parameters
         peerprocess.mansocket.sendto(message.encode(), addr)
 
 
@@ -361,7 +368,7 @@ else:
         
 
         if reciept.decode() == 'SUCCESS' and handle[0] == 'setup-dht':
-            reciept, addr = peerprocess.mansocket.recvfrom(1024)
+            reciept, addr = peerprocess.mansocket.recvfrom(1024) #manager send tuples of everyone in dht list $1.2.1 in pdf
             dhtpeerlist = json.loads(reciept.decode())
             print(dhtpeerlist)
             peerprocess.year = handle[3]

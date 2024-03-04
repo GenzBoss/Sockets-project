@@ -12,22 +12,22 @@ class dht_manager:
     HOST = "127.0.0.1"  # Standard loopback interface address (localhost)
     PORT = -1
 
-    s = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+    s = socket.socket(socket.AF_INET,socket.SOCK_DGRAM) #udp we use SOCK_DGRAM
 
     #information of host in the ring network
-    _states = ("Free", "Leader", "InDHT")
-    _peersocketarray = []
+    _states = ("Free", "Leader", "InDHT")  #() is a tuple which cannot be changed
+    _peersocketarray = []    #prob useless
     _peersocketinfo = []
     
 
     #information about dth
     dhtset = False
-    leader_index = -1
+    leader_index = -1    #based peersockerinfor index
     _peerdhtlist = []
     _dthpeerinfo = []
 
-    waitDht = False
-    dhtcompleted = False
+    waitDht = False    #helper functions for dht requirements
+    dhtcompleted = False #boolean value to manage contorl flow
     
 
     
@@ -38,8 +38,8 @@ class dht_manager:
 
         #to implement failure block
 
-        for x in self._peersocketinfo:
-            if x["name"] == peer_name:
+        for x in self._peersocketinfo:   #[{x1},{x2},{x3},{x4}]    _peerdhtlist = []
+            if x["name"] == peer_name:  #{ "name": "127.0.0.1, pport = "4000",..}
                 return "FAILURE"
 
             if x["ipv4addr"] == ipv4 and (x["mport"] == mport or x["pport"] == pport):
@@ -66,7 +66,7 @@ class dht_manager:
 
         }
 
-        self._peersocketinfo.append(registerpeer)
+        self._peersocketinfo.append(registerpeer)  #for first run its like [{x1}, {x2}]
 
         return "SUCCESS"
     
@@ -78,6 +78,7 @@ class dht_manager:
             self.s.sendto(b'FAILURE', sendaddr)
             return "FAILURE"
         
+        #which index in the list of peers _peersocketinfo = []
         namedoesnotexist = True
         leadindex = 0
         for x in self._peersocketinfo:
@@ -158,22 +159,22 @@ class dht_manager:
         
     
     def manager_start(self, PORT):
-        self.PORT = PORT
+        self.PORT = PORT    #update from parameter
 
         self.s.bind((self.HOST, PORT))
         while True:
             # x = input("hey write your command")
             #if x=="z":
             #   exit()
-
-            message, cmdaddr = self.s.recvfrom(1024)
-            print(message.decode())
+            #print("here")
+            message, cmdaddr = self.s.recvfrom(1024)   #returns a 2-tuple (meg, address)  address -is also to tuple = (msg, (ip4,port))
+            print(message.decode())  #whatever you in socket.py when u send from peer
             #print(addr)
-                    
+                  
             command = message.decode()
             spltcmnd = command.split(' ')
 
-            if spltcmnd[0] == 'Register':
+            if spltcmnd[0] == 'Register' or spltcmnd[0] == 'register':
                 p_name = spltcmnd[1]
                 p_addrv4 = spltcmnd[2]
                 m_port = int(spltcmnd[3])
@@ -260,14 +261,16 @@ class dht_manager:
 
 
 
+#main function like c++
+
 if len(sys.argv) != 2:
     print("usage: python .'\'socket.py <port>")
 
 else:
-    PORT = int(sys.argv[1])
+    PORT = int(sys.argv[1])   #port number paramer when open sockets.py
     manager = dht_manager()
-    manager.manager_start(PORT)
-        
+    manager.manager_start(PORT) #manager_start(port) in class def
+     
 
 
         

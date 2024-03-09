@@ -4,6 +4,7 @@ import socket
 import random
 import string
 import json
+from colorama import Fore, Back, Style
 
 #manager class to create required functions
 class dht_manager:
@@ -168,7 +169,7 @@ class dht_manager:
             #   exit()
             #print("here")
             message, cmdaddr = self.s.recvfrom(1024)   #returns a 2-tuple (meg, address)  address -is also to tuple = (msg, (ip4,port))
-            print(message.decode())  #whatever you in socket.py when u send from peer
+            print( Fore.GREEN + "[Receiving]... " + Fore.YELLOW + message.decode())  #whatever you in socket.py when u send from peer
             #print(addr)
                   
             command = message.decode()
@@ -195,6 +196,10 @@ class dht_manager:
                 #print(cmdaddr)
                 peer_name = spltcmnd[1] 
                 self.dht_complete(peer_name, cmdaddr)
+
+            if spltcmnd[0] == 'query-dht':    #query-dht leader
+                peer_name = spltcmnd[1]
+                self.query_dht(peer_name, cmdaddr)
 
     
 

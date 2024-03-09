@@ -15,4 +15,6 @@ fuser -k 32006/udp
 fuser -k 32004/udp
 
 # list the UDP process bound to port PORT
-fuser -k 32007/udp   
+fuser -k 32010/udp   
+
+fuser -k 32011/udp 

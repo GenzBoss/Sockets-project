@@ -6,6 +6,7 @@ import string
 import json
 import threading
 import math
+from colorama import Fore, Back, Style
 
 """
 
@@ -72,7 +73,8 @@ def recieve(peer):
                     pos = int(spltcmnd[2])
                     record = json.loads(hashrcd.decode())
                     #print(record)
-                    peer.store(id, pos, record)
+                    s = int(spltcmnd[3])
+                    peer.store(id, pos, record, s)
                     #print(peer.localht)
                     continue
                 
@@ -87,6 +89,24 @@ def recieve(peer):
                 if peer.right != 0:
                     nextaddr = (peer.dhtinfo[peer.right][1], peer.dhtinfo[peer.right][2])
                     peer.peersocket.sendto(mesg, nextaddr)
+
+            #query find-event
+
+            if spltcmnd[0] == 'find-event':
+                
+                eventid = spltcmnd[1]
+                origaddr = addr
+                peer.find_event(origaddr, eventid)
+
+            if cmnd == 'find-next':
+
+                listindex, addr = peer.peersocket.recvfrom(1024)
+                pathlist, addr = peer.peersocket.recvfrom(1024)
+                origaddr, addr = peer.peersocket.recvfrom(1024)
+                eventid, addr = peer.peersocket.recvfrom(1024)
+
+                peer.next_list(json.loads(listindex.decode()), json.loads(pathlist.decode()), json.loads(origaddr.decode()), eventid.decode())
+
 
            
 
@@ -259,7 +279,7 @@ class peer:
                 else:
                     nextaddr = (self.dhtinfo[self.right][1], self.dhtinfo[self.right][2])
                     #print(nextaddr)
-                    cmnd = f'Store {self.id} {self.pos}'
+                    cmnd = f'Store {self.id} {self.pos} {self.s}'
                     #print(cmnd)
                     self.peersocket.sendto(cmnd.encode(), nextaddr)
                     recrd = json.dumps(hashrecord).encode()
@@ -275,9 +295,10 @@ class peer:
         
 
 
-    def store(self,id, pos, hashrcd):
+    def store(self,id, pos, hashrcd, s):
         self.id = id
         self.pos = pos
+        self.s = s
         if bool(self.localht.get(f'{self.pos}')):
             self.localht[f'{self.pos}'].append(hashrcd)
             #print(f'Stored record at {pos}')
@@ -297,7 +318,94 @@ class peer:
         nextaddr = (self.dhtinfo[self.right][1], self.dhtinfo[self.right][2])
         cmnd = f'Record'
         self.peersocket.sendto(cmnd.encode(), nextaddr)
+
     
+    def find_event(self, origaddr, eventid):
+        pos = int(eventid) % self.s
+        id = pos % self.n
+        #print(self.s)
+        #print("pos")
+        #print(pos)
+        #print("event s peer id")
+        #print(id)
+        listrange = list(range(self.n))
+        pathlist = []
+        #print(eventid)
+
+        if id == self.i:
+            pathlist.append(self.i)
+            if bool(self.localht.get(f'{pos}')):
+                if self.localht[f'{pos}'][0]['EVENT_ID'] == eventid:
+                    print( f'Path of the query {pathlist}')
+                    print(self.localht[f'{pos}'])
+                else:
+                    print(f'record not found in the list {eventid}')
+                    print(f'path of query {pathlist}')
+            else:
+                print(f'record not found in the list {eventid}')
+                print(f'path of query {pathlist}')
+        
+        else:
+            #print("list here")
+            #print(listrange)
+            listrange.remove(self.i)
+            pathlist.append(self.i)
+            nextid = random.choice(listrange)
+            #print(nextid)
+            nextaddr = (self.dhtinfo[nextid][1], self.dhtinfo[nextid][2])
+            #print(self.dhtinfo)
+            self.peersocket.sendto(b'find-next', nextaddr)
+            self.peersocket.sendto(json.dumps(listrange).encode(), nextaddr)
+            self.peersocket.sendto(json.dumps(pathlist).encode(), nextaddr)
+            self.peersocket.sendto(json.dumps(origaddr).encode(), nextaddr)
+            self.peersocket.sendto(eventid.encode(), nextaddr)
+
+
+
+    def next_list(self, listrange, pathlist, origaddr, eventid):
+        pos = int(eventid) % self.s
+        #print(self.s)
+        #print("pos")
+        #print(pos)
+        #print(self.n)
+        id = pos % self.n
+        #print("next index id")
+        #print(id)
+        #print(self.i)
+        #print(eventid)
+         
+        if id == self.i:
+            pathlist.append(self.i)
+            if bool(self.localht.get(f'{pos}')):
+                if self.localht[f'{pos}'][0]['EVENT_ID'] == eventid:
+                    print( f'Path of the query {pathlist}')
+                    print(self.localht[f'{pos}'])
+                else:
+                    print(f'record not found in the list {eventid}')
+                    print(f'path of query {pathlist}')
+            else:
+                print(f'record not found in the list {eventid}')
+                print(f'path of query {pathlist}')
+
+        
+        else:
+            pathlist.append(self.i)
+
+            if len(listrange) == 0:
+                print(f'record not found in the list {eventid}')
+                print(f'path of query {pathlist}')
+            #print(self.i)
+            #print("listthere")
+            #print(listrange)
+            listrange.remove(self.i)
+            nextid = random.choice(listrange)
+            nextaddr = (self.dhtinfo[nextid][1], self.dhtinfo[nextid][2])
+            self.peersocket.sendto(b'find-next', nextaddr)
+            self.peersocket.sendto(json.dumps(listrange).encode(), nextaddr)
+            self.peersocket.sendto(json.dumps(pathlist).encode(), nextaddr)
+            self.peersocket.sendto(json.dumps(origaddr).encode(), nextaddr)
+            self.peersocket.sendto(eventid.encode(), nextaddr)
+        
 
     
                 
@@ -377,6 +485,18 @@ else:
             print(dhtpeerlist)
             peerprocess.year = handle[3]
             peerprocess.Leader(dhtpeerlist)
+
+
+        if reciept.decode() == 'SUCCESS' and handle[0] == 'query-dht':
+            peertuple,addr = peerprocess.mansocket.recvfrom(1024) #manager sends the tuple of random peer to qeury
+            peerinfo = json.loads(peertuple.decode())
+            print(peerinfo)
+            message = input(Fore.GREEN + "[QUERY]..." )
+            peeraddr = (peerinfo[1], peerinfo[2])
+            peerprocess.peersocket.sendto(message.encode(), peeraddr)
+
+
+
             
             
             

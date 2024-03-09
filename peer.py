@@ -297,6 +297,9 @@ class peer:
         nextaddr = (self.dhtinfo[self.right][1], self.dhtinfo[self.right][2])
         cmnd = f'Record'
         self.peersocket.sendto(cmnd.encode(), nextaddr)
+    
+
+    
                 
                 
                 
@@ -357,6 +360,7 @@ else:
         message = input()
 
         addr = (managerIP,managerPORT)  #from parameters
+        print(addr)
         peerprocess.mansocket.sendto(message.encode(), addr)
 
 

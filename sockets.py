@@ -22,7 +22,7 @@ class dht_manager:
 
     #information about dth
     dhtset = False
-    leader_index = -1    #based peersockerinfo index
+    leader_index = -1    #based on peersocketinfo index
     _peerdhtlist = []
     _dthpeerinfo = []
 
@@ -194,11 +194,11 @@ class dht_manager:
             if spltcmnd[0] == 'dht-complete':
                 #print(cmdaddr)
                 peer_name = spltcmnd[1] 
-                self.dht_complete(peer_name)
+                self.dht_complete(peer_name, cmdaddr)
 
     
 
-    def dht_complete(self, peer_name):
+    def dht_complete(self, peer_name, sendaddr):
         
         index = 0
         peer_index = -1
@@ -209,7 +209,6 @@ class dht_manager:
                 break
             index +=1
         
-        sendaddr = ('0',0)
         if peer_index != -1:
             sendaddr = (self._peersocketinfo[peer_index]["ipv4addr"], self._peersocketinfo[peer_index]["mport"])
 
@@ -222,16 +221,30 @@ class dht_manager:
 
 
     #use fuser -k [PORT]/tcp  to kill processs on a port if u cant reuse it
+             
 
-    def query_dht(self, peer_name):
+    def query_dht(self, peer_name, sendaddr):
 
 
+        peerindex= -1
+        index = 0
         for x in self._peersocketinfo:
-            if self._registerd == False:
-                #self.s.sendto(b'FAILURE', sendaddr)
-            if self._states != "Free":
-                #self.s.sendto(b'FAILURE', sendaddr)
+            if x["name"] == peer_name:
+                peerindex = index
+                break
+            index +=1
 
+                
+            
+        if peerindex == -1 or self._peersocketinfo[peerindex]["state"] != self._states[0] or not self.dht_complete:
+            self.s.sendto(b'FAILURE', sendaddr)
+            return
+        
+        dhtpeerind = random.randint(0,len(self._dthpeerinfo) -1)
+
+        self.s.sendto(b'SUCCESS', sendaddr)
+        self.s.sendto(json.dumps(self._dthpeerinfo[dhtpeerind]).encode(), sendaddr)
+        
 
 
 

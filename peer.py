@@ -111,7 +111,7 @@ def recieve(peer):
             # teardown
             if cmnd=='teardown':
                 nextaddr = (peer.dhtinfo[peer.right][1], peer.dhtinfo[peer.right][2])
-                peer.peersocket.sendto(mesg, nextaddr) # send teardown command to right neighbor
+                peer.peersocket.sendto(cmnd.encode(), nextaddr) # send teardown command to right neighbor
                 peer.localht = None # delete local hash table
 
 

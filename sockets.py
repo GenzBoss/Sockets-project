@@ -204,6 +204,12 @@ class dht_manager:
                 peer_name = spltcmnd[1]
                 self.query_dht(peer_name, cmdaddr)
 
+
+            if spltcmnd[0] == 'teardown-dht':
+                peer_name = spltcmnd[1]
+                self.dht_teardown(peer_name, cmdaddr)
+
+
             if spltcmnd[0] == 'teardown-complete':
                 peer_name = spltcmnd[1]
                 self.teardown_complete(peer_name, cmdaddr)

@@ -201,6 +201,11 @@ class dht_manager:
                 peer_name = spltcmnd[1]
                 self.query_dht(peer_name, cmdaddr)
 
+            
+            if spltcmnd[0] == 'join-dht' :
+                peer_name = spltcmnd[1]
+                self.join_dht(peer_name, cmdaddr)
+
     
 
     def dht_complete(self, peer_name, sendaddr):
@@ -256,7 +261,27 @@ class dht_manager:
 
 
 
-    # def join_dht(self, peer_name):
+    def join_dht(self, peer_name, cmdaddr):
+
+        index = 0
+        peerind = -1
+        for x in self.peersocketinfo:
+            if x['peer_name'] == peer_name:
+                peerind = index
+                break
+            index +=1
+        
+        if peerind != -1 or self.peersocketinfo[peerind]['state'] != self.state[0]:
+            self.s.sendto(b'FAILURE', cmdaddr)
+            return
+
+        
+
+        
+
+
+        
+
 
 
 

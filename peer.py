@@ -109,15 +109,15 @@ def recieve(peer):
 
 
             # teardown
-            if cmnd=='teardown':
+            if cmnd =='teardown':
                 nextaddr = (peer.dhtinfo[peer.right][1], peer.dhtinfo[peer.right][2])
                 peer.peersocket.sendto(cmnd.encode(), nextaddr) # send teardown command to right neighbor
                 peer.localht = None # delete local hash table
 
 
-                if peer.i == -1:
-                    finish = "teardown-complete"
-                    peer.mansocket.sendto(finish.encode(), addr)
+                if peer.right == 0: # teardown message has reached leader
+                    finish_msg = "teardown-complete"
+                    peer.mansocket.sendto(finish_msg.encode(), addr) # send "teardown-complete" to manager
                 continue
 
            
@@ -506,6 +506,13 @@ else:
             message = input(Fore.GREEN + "[QUERY]..." )
             peeraddr = (peerinfo[1], peerinfo[2])
             peerprocess.peersocket.sendto(message.encode(), peeraddr)
+
+
+        if reciept.decode() == 'SUCCESS' and handle[0] == 'teardown-dht':
+            message = "teardown"
+            leader, addr = peerprocess.mansocket.recvfrom(1024) # receive address of leader to start teardown
+            peerprocess.peersocket.sendto(message.encode(), addr)
+
 
 
             

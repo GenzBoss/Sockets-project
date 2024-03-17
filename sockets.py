@@ -204,11 +204,9 @@ class dht_manager:
                 peer_name = spltcmnd[1]
                 self.query_dht(peer_name, cmdaddr)
 
-
             if spltcmnd[0] == 'teardown-dht':
                 peer_name = spltcmnd[1]
                 self.dht_teardown(peer_name, cmdaddr)
-
 
             if spltcmnd[0] == 'teardown-complete':
                 peer_name = spltcmnd[1]
@@ -281,11 +279,14 @@ class dht_manager:
     def dht_teardown(self, peer_name, sendaddr):
 
         # check if peer is leader
-        for x in self._peersocketinfo:
-            if x["name"] == peer_name:
-                if x["state"] != self._states[1]:
-                    self.s.sendto(b'FAILURE', sendaddr)
-                    return
+        if peer_name != self._peersocketinfo[self.leader_index]["name"]:
+            self.s.sendto(b'FAILURE', sendaddr)
+            return
+        else:
+            self.s.sendto(b'SUCCESS', sendaddr)
+            message = "teardown"
+            self._peersocketinfo[self.leader_index].peerprocess.peersocket.sendto(message.encode(), sendaddr) # leader sends teardown command
+
 
         # wait for teardown-complete
         while True:

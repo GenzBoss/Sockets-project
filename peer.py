@@ -120,7 +120,8 @@ def recieve(peer):
                     peer.mansocket.sendto(finish_msg.encode(), addr) # send "teardown-complete" to manager
                 continue
 
-           
+
+
 
 
 
@@ -184,6 +185,8 @@ class peer:
         self.peersocket.bind((self.ipv4, self.pport))
         self.registerd = True
 
+    # def deregister(self):
+        # self.registerd = False
         
 
     
@@ -465,6 +468,10 @@ else:
         if reciept.decode() == 'SUCCESS' and handle[0] == 'Register':
             peerprocess.register(handle[1], handle[2], handle[3], handle[4])
 
+        if reciept.decode() == 'SUCCESS' and handle[0] == 'exit':
+            peerprocess.peersocket.close()
+            sys.exit()
+
 
 
     t1 = threading.Thread(target=recieve, args=(peerprocess,))
@@ -513,6 +520,9 @@ else:
             leader, addr = peerprocess.mansocket.recvfrom(1024) # receive address of leader to start teardown
             peerprocess.peersocket.sendto(message.encode(), addr)
 
+        # user process exists application
+        if reciept.decode() == 'SUCCESS' and handle[0] == 'deregister':
+            sys.exit(0)
 
 
             

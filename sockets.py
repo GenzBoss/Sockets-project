@@ -212,6 +212,11 @@ class dht_manager:
                 peer_name = spltcmnd[1]
                 self.teardown_complete(peer_name, cmdaddr)
 
+            if spltcmnd[0] == 'deregister':
+                p_name = spltcmnd[1]
+                self.deregister(p_name, cmdaddr)
+
+
     
 
     def dht_complete(self, peer_name, sendaddr):
@@ -322,6 +327,33 @@ class dht_manager:
             self.s.sendto(b'SUCCESS', sendaddr)
         else:
             self.s.sendto(b'FAILURE', sendaddr)
+
+
+    def deregister(self, peer_name, sendaddr):
+
+       # deregister_success = False
+
+        for x in self._peersocketinfo:
+            if x["name"] == peer_name:
+                if x["state"] == self._states[0]:
+                    self._peersocketinfo.remove(x)
+                    self.s.sendto(b'SUCCESS', sendaddr)
+                    # message = "exit"
+                    # self.s.sendto(message.encode(), sendaddr)
+                    # deregister_success = True
+
+
+
+                if x["state"] == self._states[2]:
+                    self.s.sendto(b'FAILURE', sendaddr) # returns FAILURE if peer state is set to inDHT
+                    return
+
+
+
+
+
+
+
 
 
 

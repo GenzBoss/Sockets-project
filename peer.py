@@ -214,7 +214,8 @@ def recieve(peer):
             peer.peersocket.sendto(json.dumps(peer.dhtinfo).encode(), nextaddr)
             
 
-
+        if cmnd == 'EXIT':
+            sys.exit()
             #print(mesg.decode())
         
         """ 
@@ -754,10 +755,15 @@ else:
 
      # user process exists application
         if reciept.decode() == 'SUCCESS' and handle[0] == 'deregister':
+           
+           #lets close our thread first
+            peerprocess.peersocket.sendto(b'EXIT', (peerprocess.ipv4, peerprocess.pport))
+           #close the sockets
             peerprocess.peersocket.close()
             peerprocess.mansocket.close()
-            t1.join()
-            exit(0)
+           
+           #safely terminate
+            sys.exit()
 
     
 

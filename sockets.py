@@ -30,6 +30,11 @@ class dht_manager:
     waitDht = False    #helper functions for dht requirements
     dhtcompleted = False #boolean value to manage contorl flow
     teardowncompleted = False #boolean value for teardown
+
+    #------------------------
+
+    leavepeer = {}
+    year = ""
     
 
     
@@ -127,7 +132,7 @@ class dht_manager:
             ipv4 = peer["ipv4addr"]
             pport = peer["pport"]
             print(f"peer{i} {ipv4} {pport}" )
-            self._dthpeerinfo.append([i, ipv4, pport])
+            self._dthpeerinfo.append([peer["name"], ipv4, pport])
             i +=1
             
 
@@ -191,14 +196,17 @@ class dht_manager:
                 lead_name = spltcmnd[1]
                 n = int(spltcmnd[2])
                 year = spltcmnd[3]
+                self.year = year
                 msg = self.set_up_dht(lead_name,n,year, cmdaddr )
 
 
 
             if spltcmnd[0] == 'dht-complete':
                 #print(cmdaddr)
-                peer_name = spltcmnd[1] 
-                self.dht_complete(peer_name, cmdaddr)
+                if len(spltcmnd) > 1:
+                    peer_name = spltcmnd[1] 
+                    self.dht_complete(peer_name, cmdaddr)
+                
 
             if spltcmnd[0] == 'query-dht':    #query-dht leader
                 peer_name = spltcmnd[1]
@@ -216,6 +224,10 @@ class dht_manager:
             if spltcmnd[0] == 'join-dht' :
                 peer_name = spltcmnd[1]
                 self.join_dht(peer_name, cmdaddr)
+
+            if spltcmnd[0] == 'leave-dht' :
+                peer_name = spltcmnd[1]
+                self.leave_dht(peer_name, cmdaddr)
 
     
 
@@ -262,6 +274,56 @@ class dht_manager:
 
         self.s.sendto(b'SUCCESS', sendaddr)
         self.s.sendto(json.dumps(self._dthpeerinfo[dhtpeerind]).encode(), sendaddr)
+
+
+
+
+    def leave_dht(self, peer_name, cmdaddr):
+        
+        index = 0
+        peerind = -1
+        for x in self._peersocketinfo:
+            if x['name'] == peer_name:
+                peerind = index
+                break
+            index +=1
+        
+        if peerind == -1 or self._peersocketinfo[peerind]['state'] == self._states[0]:
+            self.s.sendto(b'FAILURE', cmdaddr)
+            return
+
+        leavepeer = self._peersocketinfo[peerind]
+
+        self.s.sendto(b'SUCCESS', cmdaddr)
+        self.s.sendto(self.year.encode(), cmdaddr)
+
+        #wait for dht rebuilt complete reciept
+
+        while True:
+            message, sendaddr = self.s.recvfrom(1024)
+            reciept = message.decode().split()
+        
+            if cmdaddr == sendaddr and reciept[0] == 'dht-rebuilt':
+                newdhtinfo, sendaddr = self.s.recvfrom(1024)
+                self._dthpeerinfo = json.loads(newdhtinfo.decode())
+
+                self.dhtcompleted = True
+                freeind = next((i for i, item in enumerate(self._peersocketinfo) if item["name"] == reciept[1]), None)
+                self._peersocketinfo[freeind]['state'] = self._states[0]
+                if freeind != self.leader_index:
+                    self._peersocketinfo[self.leader_index]['state'] = self._states[2]
+                self.leader_index = next((i for i, item in enumerate(self._peersocketinfo) if item["name"] == reciept[2]), None)
+                self._peersocketinfo[self.leader_index]['state'] = self._states[1]
+                #print("here")
+                print( Fore.GREEN + "[Receiving]... " + Fore.YELLOW + message.decode())
+                print( Fore.GREEN + "[Receiving]... " + Fore.YELLOW + str(self._dthpeerinfo))
+                return
+            else:
+                #print(sendaddr)
+                #print(cmdaddr)
+                self.s.sendto(b'FAILURE', cmdaddr)
+        
+
         
 
 
@@ -273,29 +335,56 @@ class dht_manager:
 
         index = 0
         peerind = -1
-        for x in self.peersocketinfo:
-            if x['peer_name'] == peer_name:
+        for x in self._peersocketinfo:
+            if x['name'] == peer_name:
                 peerind = index
                 break
             index +=1
+
+        #print(self._peersocketinfo[peerind])
         
-        if peerind != -1 or self.peersocketinfo[peerind]['state'] != self.state[0]:
+        if peerind == -1 or self._peersocketinfo[peerind]['state'] != self._states[0]:
             self.s.sendto(b'FAILURE', cmdaddr)
             return
+        
+        joinpeer = self._peersocketinfo[peerind]
+
+        self.s.sendto(b'SUCCESS', cmdaddr)
+        self.s.sendto(self.year.encode(), cmdaddr)
+        self.s.sendto(json.dumps(self._dthpeerinfo).encode(), cmdaddr)
+
+        
+        while True:
+            message, sendaddr = self.s.recvfrom(1024)
+            reciept = message.decode().split()
+        
+            if cmdaddr == sendaddr and reciept[0] == 'dht-rebuilt':
+                newdhtinfo, sendaddr = self.s.recvfrom(1024)
+                self._dthpeerinfo = json.loads(newdhtinfo.decode())
+                joinind = next((i for i, item in enumerate(self._peersocketinfo) if item["name"] == reciept[1]), None)
+                self._peersocketinfo[joinind]['state'] = self._states[2]
+
+                self.dhtcompleted = True
+                print( Fore.GREEN + "[Receiving]... " + Fore.YELLOW + message.decode())
+                print( Fore.GREEN + "[Receiving]... " + Fore.YELLOW +  str(self._dthpeerinfo))
+                return
+
+
+            else:
+                #print(sendaddr)
+                #print(cmdaddr)
+                self.s.sendto(b'FAILURE', cmdaddr)   
+        
+
 
         
 
-        
-
-
-        
 
 
 
 
 
 
-    # def leave_dht(self, peer_name):
 
 
     # def dht_rebuilt(self, peer_name, new_leader):
@@ -309,20 +398,12 @@ class dht_manager:
             return
         else:
             self.s.sendto(b'SUCCESS', sendaddr)
-            message = "teardown"
-            self._peersocketinfo[self.leader_index].peerprocess.peersocket.sendto(message.encode(), sendaddr) # leader sends teardown command
 
 
-        # wait for teardown-complete
-        while True:
-            message, cmdaddr = self.s.recvfrom(1024)
+        self.teardown_complete(peer_name, sendaddr)
+    
 
-            if cmdaddr == sendaddr and message.decode() == 'teardown-complete':
-                self.teardowncompleted = True
-                print('teardown-complete')
-                return
-            else:
-                self.s.sendto(b'FAILURE', cmdaddr)
+        
 
 
 
@@ -331,22 +412,23 @@ class dht_manager:
 
 
     def teardown_complete(self, peer_name, sendaddr):
-        index = 0
-        peer_index = -1
 
-        # set each peer involved in maintaining DHT to "Free"
-        for x in self._peerdhtlist:
-            x["state"] = self._states[0]
-            index += 1
 
-        sendaddr = ('0', 0)
-        if peer_index != -1:
-            sendaddr = (self._peersocketinfo[peer_index]["ipv4addr"], self._peersocketinfo[peer_index]["mport"])
 
-        if self.teardowncompleted and peer_index != -1:
-            self.s.sendto(b'SUCCESS', sendaddr)
-        else:
-            self.s.sendto(b'FAILURE', sendaddr)
+        # wait for teardown-complete
+        while True:
+            message, cmdaddr = self.s.recvfrom(1024)
+
+            if cmdaddr == sendaddr and message.decode() == f'teardown-complete {peer_name}':
+                self.teardowncompleted = True
+                for x in self._peersocketinfo:
+                    x["state"] = self._states[0]
+                    self._peerdhtlist = []
+                    print('teardown-complete')
+                    return
+            else:
+                self.s.sendto(b'FAILURE', cmdaddr)
+       
 
 
 
@@ -359,7 +441,7 @@ class dht_manager:
 #main function like c++
 
 if len(sys.argv) != 2:
-    print("usage: python .'\'socket.py <port>")
+    print("usage: python3 socket.py <port>")
 
 else:
     PORT = int(sys.argv[1])   #port number parameter when open sockets.py

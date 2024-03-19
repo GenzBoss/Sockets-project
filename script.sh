@@ -18,3 +18,7 @@ fuser -k 32004/udp
 fuser -k 32010/udp   
 
 fuser -k 32011/udp 
+
+fuser -k 32012/udp   
+
+fuser -k 32013/udp 

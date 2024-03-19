@@ -49,80 +49,170 @@ def is_prime(n):
 #for the thread so we can have peer communication and manager communication
 def recieve(peer):
 
-        while True:      
-            mesg, addr = peer.peersocket.recvfrom(1024)  #it recieves from another peer
-            cmnd = mesg.decode()
-            spltcmnd = cmnd.split(' ')
-            if spltcmnd[0] == 'set-id':
-                ntuple, addr = peer.peersocket.recvfrom(1024)  
-                dethpeerlist = json.loads(ntuple.decode())  #opposite dump make into object again from bytes 
-                #print(dethpeerlist[1][1])
-                #print(f'{spltcmnd[1]}, {spltcmnd[2]}')
-                peer.set_id(int(spltcmnd[1]), int(spltcmnd[2]), dethpeerlist)
+    while True:      
+        mesg, addr = peer.peersocket.recvfrom(1024)  #it recieves from another peer
+        cmnd = mesg.decode()
+        spltcmnd = cmnd.split(' ')
+        if spltcmnd[0] == 'set-id':
+            ntuple, addr = peer.peersocket.recvfrom(1024)  
+            dethpeerlist = json.loads(ntuple.decode())  #opposite dump make into object again from bytes 
+            #print(dethpeerlist[1][1])
+            #print(f'{spltcmnd[1]}, {spltcmnd[2]}')
+            peer.set_id(int(spltcmnd[1]), int(spltcmnd[2]), dethpeerlist)
+            continue
+
+        if spltcmnd[0] == 'Ring':
+            print('ring complete')
+            peer.hash_table_start()
+            continue
+
+        if spltcmnd[0] == 'Store':
+            hashrcd, addr = peer.peersocket.recvfrom(1024)
+            id = int(spltcmnd[1])
+            if id == peer.i:
+                pos = int(spltcmnd[2])
+                record = json.loads(hashrcd.decode())
+                #print(record)
+                s = int(spltcmnd[3])
+                peer.store(id, pos, record, s)
+                #print(peer.localht)
                 continue
-
-            if spltcmnd[0] == 'Ring':
-                print('ring complete')
-                peer.hash_table_start()
-                continue
-
-            if spltcmnd[0] == 'Store':
-                hashrcd, addr = peer.peersocket.recvfrom(1024)
-                id = int(spltcmnd[1])
-                if id == peer.i:
-                    pos = int(spltcmnd[2])
-                    record = json.loads(hashrcd.decode())
-                    #print(record)
-                    s = int(spltcmnd[3])
-                    peer.store(id, pos, record, s)
-                    #print(peer.localht)
-                    continue
-                
-                else:
-                    nextaddr = (peer.dhtinfo[peer.right][1], peer.dhtinfo[peer.right][2])
-                    peer.peersocket.sendto(mesg, nextaddr)
-                    peer.peersocket.sendto(hashrcd, nextaddr)
-                    continue
-
-            if cmnd == 'Record':
-                print(f'number of record in local ht {peer.numrcd}')
-                if peer.right != 0:
-                    nextaddr = (peer.dhtinfo[peer.right][1], peer.dhtinfo[peer.right][2])
-                    peer.peersocket.sendto(mesg, nextaddr)
-
-            #query find-event
-
-            if spltcmnd[0] == 'find-event':
-                
-                eventid = spltcmnd[1]
-                origaddr = addr
-                peer.find_event(origaddr, eventid)
-
-            if cmnd == 'find-next':
-
-                listindex, addr = peer.peersocket.recvfrom(1024)
-                pathlist, addr = peer.peersocket.recvfrom(1024)
-                origaddr, addr = peer.peersocket.recvfrom(1024)
-                eventid, addr = peer.peersocket.recvfrom(1024)
-
-                peer.next_list(json.loads(listindex.decode()), json.loads(pathlist.decode()), json.loads(origaddr.decode()), eventid.decode())
-
-
-            # teardown
-            if cmnd =='teardown':
+            
+            else:
                 nextaddr = (peer.dhtinfo[peer.right][1], peer.dhtinfo[peer.right][2])
-                peer.peersocket.sendto(cmnd.encode(), nextaddr) # send teardown command to right neighbor
-                peer.localht = None # delete local hash table
-
-
-                if peer.right == 0: # teardown message has reached leader
-                    finish_msg = "teardown-complete"
-                    peer.mansocket.sendto(finish_msg.encode(), addr) # send "teardown-complete" to manager
+                peer.peersocket.sendto(mesg, nextaddr)
+                peer.peersocket.sendto(hashrcd, nextaddr)
                 continue
 
-           
+        if cmnd == 'Record':
+            print(f'number of record in local ht {peer.numrcd}')
+            if peer.right != 0:
+                nextaddr = (peer.dhtinfo[peer.right][1], peer.dhtinfo[peer.right][2])
+                peer.peersocket.sendto(mesg, nextaddr)
+
+        #query find-event
+
+        if spltcmnd[0] == 'find-event':
+            
+            eventid = spltcmnd[1]
+            origaddr = addr
+            peer.find_event(origaddr, eventid)
+
+        if cmnd == 'find-next':
+
+            listindex, addr = peer.peersocket.recvfrom(1024)
+            pathlist, addr = peer.peersocket.recvfrom(1024)
+            origaddr, addr = peer.peersocket.recvfrom(1024)
+            eventid, addr = peer.peersocket.recvfrom(1024)
+
+            peer.next_list(json.loads(listindex.decode()), json.loads(pathlist.decode()), json.loads(origaddr.decode()), eventid.decode())
 
 
+        # teardown
+        if spltcmnd[0] =='teardown':
+            peer.localht = {} # delete local hash table
+            peer.numrcd = 0
+
+            if spltcmnd[1] == str(peer.i): # teardown message has reached leader
+                returnaddr = (peer.dhtinfo[peer.i][1], peer.dhtinfo[peer.i][2])
+                finish_msg = "teardown-complete"
+                peer.teardowndone = True
+                continue
+
+            nextaddr = (peer.dhtinfo[peer.right][1], peer.dhtinfo[peer.right][2])
+            peer.peersocket.sendto(cmnd.encode(), nextaddr) # send teardown command to right neighbor
+
+        
+        if spltcmnd[0] == 'resetnext':
+            newdhtinfobytes, addr = peer.peersocket.recvfrom(1024)
+            returnaddr, addr = peer.peersocket.recvfrom(1024)
+            newdhtinfo = json.loads(newdhtinfobytes.decode())
+            #print(newdhtinfo)
+            nextaddr = (peer.dhtinfo[peer.right][1], peer.dhtinfo[peer.right][2] )
+            newdhtinfo.append(peer.dhtinfo[peer.i])
+            newdhtinfobytes = json.dumps(newdhtinfo).encode()
+            peer.i = len(newdhtinfo) - 1
+            peer.n -=1
+            peer.right = peer.i + 1
+            peer.left = peer.i - 1
+
+            if len(newdhtinfo) == peer.n:
+                peer.right = 0
+                leadaddr = (newdhtinfo[0][1],newdhtinfo[0][2])
+                peer.peersocket.sendto(b'updatetupleinfo', leadaddr)
+                peer.peersocket.sendto(newdhtinfobytes, leadaddr)
+                peer.peersocket.sendto(returnaddr, leadaddr)
+                continue
+
+            if len(newdhtinfo) == 0:
+                peer.left = -1
+
+            peer.peersocket.sendto(mesg, nextaddr)
+            peer.peersocket.sendto(newdhtinfobytes, nextaddr)
+            peer.peersocket.sendto(returnaddr, nextaddr)
+
+        
+        if cmnd == 'updatetupleinfo':
+            newdhtinfobytes, addr = peer.peersocket.recvfrom(1024)
+            returnaddr, addr = peer.peersocket.recvfrom(1024)
+            newdhtinfo = json.loads(newdhtinfobytes.decode())
+            peer.dhtinfo = newdhtinfo
+            #print(newdhtinfo)
+            nextaddr = (peer.dhtinfo[peer.right][1], peer.dhtinfo[peer.right][2])
+            #print(peer.right)
+            if peer.right == 0:
+                returnaddr = json.loads(returnaddr.decode())
+                returnaddrtuple = (returnaddr[0], returnaddr[1])
+                peer.peersocket.sendto(b'finished reset',returnaddrtuple)
+                peer.peersocket.sendto(newdhtinfobytes, returnaddrtuple)
+                continue
+            #print(nextaddr)
+            #print(mesg)
+            peer.peersocket.sendto(mesg, nextaddr)
+            peer.peersocket.sendto(newdhtinfobytes, nextaddr)
+            peer.peersocket.sendto(returnaddr, nextaddr)
+
+
+        if cmnd == 'finished reset':
+            newdhtinfobytes, addr = peer.peersocket.recvfrom(1024)
+            peer.dhtinfo = json.loads(newdhtinfobytes.decode())
+            peer.resetdone = True
+        
+        if spltcmnd[0] == 'rebuild':
+            peer.rebuild(spltcmnd[1])
+
+        if spltcmnd[0] == 'RESPONSE':
+            if cmnd == 'RESPONSE SUCCESS':
+                recd, addr = peer.peersocket.recvfrom(1024)
+                entry = json.loads(recd.decode())
+                print("[SUCESSS]..." + str(entry) + Fore.WHITE )
+            
+            else:
+                print(Fore.RED + '[NOT FOUND]...' + Fore.WHITE)
+
+
+
+        if cmnd == 'updatejoin':
+            newdhtinfobytes, addr = peer.peersocket.recvfrom(1024)
+            peer.dhtinfo = json.loads(newdhtinfobytes.decode())
+            peer.n = len(peer.dhtinfo)
+
+            if peer.i == len(peer.dhtinfo) - 2:
+                peer.right = peer.i + 1
+
+            if peer.i == len(peer.dhtinfo) -1:
+                finish = b'finished reset'
+                nextaddr = (peer.dhtinfo[peer.i][1], peer.dhtinfo[peer.i][2]) 
+                peer.peersocket.sendto(finish, nextaddr)
+                peer.peersocket.sendto(json.dumps(peer.dhtinfo).encode(), nextaddr)
+                continue
+
+
+            updateid = b'updatejoin'
+            nextaddr = (peer.dhtinfo[peer.right][1], peer.dhtinfo[peer.right][2]) 
+            peer.peersocket.sendto(updateid, nextaddr)
+            peer.peersocket.sendto(json.dumps(peer.dhtinfo).encode(), nextaddr)
+            
 
 
             #print(mesg.decode())
@@ -155,6 +245,7 @@ class peer:
     right = -1  #and right peer in ring index
 
     dhtinfo = []  #all info off peers in ring like name, ipv4add, pport
+    
 
     #------hash table info
 
@@ -170,6 +261,13 @@ class peer:
     localht = {}
     hastableinf0=[]
     numrcd = 0
+
+    #--------------
+    teardowndone = False
+    resetdone = False
+
+
+   
 
     
 
@@ -187,13 +285,16 @@ class peer:
         
 
     
-    def Leader(self, tuples):    #not a python tuple but the idea tuple
+    def Leader(self, tuples, year):    #not a python tuple but the idea tuple
         self.i = 0
         self.right = 1
         self.n = len(tuples)
         self.dhtinfo = tuples
         nextip = self.dhtinfo[self.right][1]  #ipv4 addres 
         port =  self.dhtinfo[self.right][2]   #pport
+        self.year = year
+        #print(self.peer_name)
+        #print(self.year)
 
         nextaddr = (nextip,port)  #now give information to next peer that is suppose to participate in ring
 
@@ -250,6 +351,7 @@ class peer:
 
 
     def hash_table_start(self):
+        #print(self.peer_name)
         path = f'./1950-1952/details-{self.year}.csv'
         with open(path, 'r') as fp:
             for count, line in enumerate(fp):
@@ -349,12 +451,16 @@ class peer:
                 if self.localht[f'{pos}'][0]['EVENT_ID'] == eventid:
                     print( f'Path of the query {pathlist}')
                     print(self.localht[f'{pos}'])
+                    self.peersocket.sendto(b'RESPONSE SUCCESS', tuple(origaddr))
+                    self.peersocket.sendto(json.dumps(self.localht[f'{pos}']).encode(), tuple(origaddr))
                 else:
                     print(f'record not found in the list {eventid}')
                     print(f'path of query {pathlist}')
+                    self.peersocket.sendto(b'RESPONSE FAILURE', tuple(origaddr))
             else:
                 print(f'record not found in the list {eventid}')
                 print(f'path of query {pathlist}')
+                self.peersocket.sendto(b'RESPONSE FAILURE', tuple(origaddr))
         
         else:
             #print("list here")
@@ -391,12 +497,17 @@ class peer:
                 if self.localht[f'{pos}'][0]['EVENT_ID'] == eventid:
                     print( f'Path of the query {pathlist}')
                     print(self.localht[f'{pos}'])
+                    self.peersocket.sendto(b'RESPONSE SUCCESS', tuple(origaddr))
+                    self.peersocket.sendto(json.dumps(self.localht[f'{pos}']).encode(), tuple(origaddr))
                 else:
                     print(f'record not found in the list {eventid}')
                     print(f'path of query {pathlist}')
+                    self.peersocket.sendto(b'RESPONSE FAILURE', tuple(origaddr))
+                    
             else:
                 print(f'record not found in the list {eventid}')
                 print(f'path of query {pathlist}')
+                self.peersocket.sendto(b'RESPONSE FAILURE', tuple(origaddr))
 
         
         else:
@@ -405,6 +516,7 @@ class peer:
             if len(listrange) == 0:
                 print(f'record not found in the list {eventid}')
                 print(f'path of query {pathlist}')
+                self.peersocket.sendto(b'RESPONSE FAILURE', origaddr)
             #print(self.i)
             #print("listthere")
             #print(listrange)
@@ -418,8 +530,82 @@ class peer:
             self.peersocket.sendto(eventid.encode(), nextaddr)
         
 
-    
+    def teardown(self):
+        command = f'teardown {self.i}'
+        nextpeeraddr = (self.dhtinfo[self.right][1], self.dhtinfo[self.right][2] )
+        self.peersocket.sendto(command.encode(), nextpeeraddr )
+        
 
+        while True:
+           
+            if self.teardowndone:
+                self.teardowndone = False
+                print('teardown-complete')
+    
+                return
+
+
+
+
+
+    def resetid(self, manaddr):
+
+        newdhtinfo = []
+        command = f'resetnext {self.i}'
+        returnaddr = (self.dhtinfo[self.i][1], self.dhtinfo[self.i][2])
+        nextaddr = (self.dhtinfo[self.right][1], self.dhtinfo[self.right][2])
+        self.n = -1  #number of people in ring
+        self.i = -1   #index of the current peer in ring
+        self.left = -1  #index of left peer in ring
+        self.right = -1  #and right peer in ring index
+        self.dhtinfo = []
+        self.peersocket.sendto(command.encode(), nextaddr)
+        self.peersocket.sendto(json.dumps(newdhtinfo).encode(), nextaddr)
+        self.peersocket.sendto(json.dumps(returnaddr).encode(), nextaddr)
+        #print("im here")
+        while True:
+            
+            if self.resetdone:
+                self.resetdone = False
+                print('finsihed reset')
+                return
+
+
+
+    def start_rebuild(self, year):
+        rebd = f'rebuild {year}'
+        print(rebd)
+        self.peersocket.sendto(rebd.encode(), (self.dhtinfo[0][1], self.dhtinfo[0][2]))
+
+    def rebuild(self,year):
+        print(year)
+        self.Leader(self.dhtinfo, year)
+
+    
+    def addid(self,dhtinfobytes):
+        #my algorithm is add the new peer at the end of the ring
+
+        self.dhtinfo = json.loads(dhtinfobytes.decode())
+
+        self.dhtinfo.append([self.peer_name, self.ipv4, self.pport])
+
+        self.i = len(self.dhtinfo) - 1
+        self.left = self.i - 1
+        self.right = 0
+        self.n = len(self.dhtinfo)
+        updateid = b'updatejoin'
+        #update info for all peers
+        firstadd = (self.dhtinfo[0][1], self.dhtinfo[0][2])
+
+        self.peersocket.sendto(updateid, firstadd)
+        self.peersocket.sendto(json.dumps(self.dhtinfo).encode(), firstadd)
+        
+        while True:
+            
+            if self.resetdone:
+                self.resetdone = False
+                print('finsihed reset')
+                return
                 
                 
                 
@@ -437,6 +623,7 @@ else:
     
     managerIP = sys.argv[1]   #manager ip
     managerPORT = int(sys.argv[2])
+
 
     register_peer = False
 
@@ -480,7 +667,7 @@ else:
         message = input()
 
         addr = (managerIP,managerPORT)  #from parameters
-        print(addr)
+        #print(addr)
         peerprocess.mansocket.sendto(message.encode(), addr)
 
 
@@ -496,7 +683,7 @@ else:
             dhtpeerlist = json.loads(reciept.decode())
             print(dhtpeerlist)
             peerprocess.year = handle[3]
-            peerprocess.Leader(dhtpeerlist)
+            peerprocess.Leader(dhtpeerlist, peerprocess.year)
 
 
         if reciept.decode() == 'SUCCESS' and handle[0] == 'query-dht':
@@ -509,14 +696,52 @@ else:
 
 
         if reciept.decode() == 'SUCCESS' and handle[0] == 'teardown-dht':
-            message = "teardown"
-            leader, addr = peerprocess.mansocket.recvfrom(1024) # receive address of leader to start teardown
-            peerprocess.peersocket.sendto(message.encode(), addr)
+            peerprocess.teardown()
+            complete = f'teardown-complete {peerprocess.peer_name}'
+            peerprocess.mansocket.sendto(complete.encode(), addr)
 
+        
 
+        
+        if reciept.decode() == 'SUCCESS' and handle[0] == 'leave-dht':
+            #take year to help rebuild ht
+            year,addr = peerprocess.mansocket.recvfrom(1024)
+            #iinitiate teardown
+            peerprocess.teardown()
+            #resetid AND after completing send the reciept to manager
+            peerprocess.resetid(addr)
+            #now rebuld the new dht
+            peerprocess.start_rebuild(year.decode())
 
+            recieptrebuilt = f'dht-rebuilt {peerprocess.peer_name} {peerprocess.dhtinfo[0][0]}'
+            peerprocess.mansocket.sendto(recieptrebuilt.encode(), addr)
+            peerprocess.mansocket.sendto(json.dumps(peerprocess.dhtinfo).encode(), addr)
+            print('[SENDING]... rebuilt reciept')
+        
+        
+
+        if reciept.decode() == 'SUCCESS' and handle[0] == 'join-dht':
+            #take year to help rebuild ht
+            year,addr = peerprocess.mansocket.recvfrom(1024)
+            dhtinfobytes , addr = peerprocess.mansocket.recvfrom(1024)
+            #first we add the peer to the dht
+
+            peerprocess.addid(dhtinfobytes)
+
+            #then we can iinitiate teardown
+
+            peerprocess.teardown()
+                
             
 
+            #and finally rebuild the DHT
+
+            peerprocess.start_rebuild(year.decode())
+
+            recieptrebuilt = f'dht-rebuilt {peerprocess.peer_name} {peerprocess.dhtinfo[0][0]}'
+            peerprocess.mansocket.sendto(recieptrebuilt.encode(), addr)
+            peerprocess.mansocket.sendto(json.dumps(peerprocess.dhtinfo).encode(), addr)
+            print('[SENDING]... rebuilt reciept')
         
 
 

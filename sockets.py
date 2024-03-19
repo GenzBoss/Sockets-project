@@ -85,6 +85,7 @@ class dht_manager:
             self.s.sendto(b'FAILURE', sendaddr)
             return "FAILURE"
         
+        
         #which index in the list of peers _peersocketinfo = []
         namedoesnotexist = True
         leadindex = 0
@@ -271,7 +272,7 @@ class dht_manager:
                 break
             index +=1
 
-        if peerindex == -1 or self._peersocketinfo[peerindex]["state"] != self._states[0] or not self.dht_complete:
+        if peerindex == -1 or self._peersocketinfo[peerindex]["state"] != self._states[0] or not self.dhtcompleted:
             self.s.sendto(b'FAILURE', sendaddr)
             return
         
@@ -426,11 +427,16 @@ class dht_manager:
 
             if cmdaddr == sendaddr and message.decode() == f'teardown-complete {peer_name}':
                 self.teardowncompleted = True
+                self.dhtset = False
+                self.dhtcompleted = False
+                self._dthpeerinfo = []
+                self._peerdhtlist = []
                 for x in self._peersocketinfo:
                     x["state"] = self._states[0]
                     self._peerdhtlist = []
-                    print('teardown-complete')
-                    return
+                    
+                print('teardown-complete')
+                return
             else:
                 self.s.sendto(b'FAILURE', cmdaddr)
        
@@ -438,12 +444,13 @@ class dht_manager:
 
     def deregister(self, peer_name, sendaddr):
 
-       # deregister_success = False
+        deregister_success = False
 
         for x in self._peersocketinfo:
             if x["name"] == peer_name:
                 if x["state"] == self._states[0]:
                     self._peersocketinfo.remove(x)
+                    deregister_success = True
                     self.s.sendto(b'SUCCESS', sendaddr)
                     # message = "exit"
                     # self.s.sendto(message.encode(), sendaddr)
@@ -451,11 +458,14 @@ class dht_manager:
 
 
 
-                if x["state"] == self._states[2]:
+                if x["state"] == self._states[2] or x["state"] == self._states[1]:
                     self.s.sendto(b'FAILURE', sendaddr) # returns FAILURE if peer state is set to inDHT
                     return
 
 
+        if not deregister_success:
+            self.s.sendto(b'FAILURE', sendaddr) # returns FAILURE if peer state is set to inDHT
+            return
 
 
 

@@ -6,7 +6,7 @@ Register notpeer1 172.27.125.154 32011 32010
 setup-dht leader 4 1950
 setup-dht leader 3 1950
 dht-complete leader
-
+deregister leader
 teardown-dht leader
 leave-dht peer0
 join-dht notpeer1

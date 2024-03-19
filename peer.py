@@ -676,9 +676,10 @@ else:
         #print(addr)
         peerprocess.mansocket.sendto(message.encode(), addr)
 
-
+        
 
         reciept, addr = peerprocess.mansocket.recvfrom(1024)
+       
         print(reciept.decode())
  
         handle = message.split(' ')
@@ -751,6 +752,12 @@ else:
         
 
 
+     # user process exists application
+        if reciept.decode() == 'SUCCESS' and handle[0] == 'deregister':
+            peerprocess.peersocket.close()
+            peerprocess.mansocket.close()
+            t1.join()
+            exit(0)
 
     
 

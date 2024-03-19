@@ -282,6 +282,8 @@ class peer:
         self.peersocket.bind((self.ipv4, self.pport))
         self.registerd = True
 
+    # def deregister(self):
+        # self.registerd = False
         
 
     
@@ -651,6 +653,10 @@ else:
 
         if reciept.decode() == 'SUCCESS' and handle[0] == 'Register':
             peerprocess.register(handle[1], handle[2], handle[3], handle[4])
+
+        if reciept.decode() == 'SUCCESS' and handle[0] == 'exit':
+            peerprocess.peersocket.close()
+            sys.exit()
 
 
 

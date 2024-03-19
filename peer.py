@@ -108,6 +108,18 @@ def recieve(peer):
                 peer.next_list(json.loads(listindex.decode()), json.loads(pathlist.decode()), json.loads(origaddr.decode()), eventid.decode())
 
 
+            # teardown
+            if cmnd =='teardown':
+                nextaddr = (peer.dhtinfo[peer.right][1], peer.dhtinfo[peer.right][2])
+                peer.peersocket.sendto(cmnd.encode(), nextaddr) # send teardown command to right neighbor
+                peer.localht = None # delete local hash table
+
+
+                if peer.right == 0: # teardown message has reached leader
+                    finish_msg = "teardown-complete"
+                    peer.mansocket.sendto(finish_msg.encode(), addr) # send "teardown-complete" to manager
+                continue
+
            
 
 
@@ -319,7 +331,6 @@ class peer:
         cmnd = f'Record'
         self.peersocket.sendto(cmnd.encode(), nextaddr)
 
-    
     def find_event(self, origaddr, eventid):
         pos = int(eventid) % self.s
         id = pos % self.n
@@ -408,6 +419,7 @@ class peer:
         
 
     
+
                 
                 
                 
@@ -496,9 +508,13 @@ else:
             peerprocess.peersocket.sendto(message.encode(), peeraddr)
 
 
+        if reciept.decode() == 'SUCCESS' and handle[0] == 'teardown-dht':
+            message = "teardown"
+            leader, addr = peerprocess.mansocket.recvfrom(1024) # receive address of leader to start teardown
+            peerprocess.peersocket.sendto(message.encode(), addr)
 
-            
-            
+
+
             
 
         

@@ -29,6 +29,7 @@ class dht_manager:
 
     waitDht = False    #helper functions for dht requirements
     dhtcompleted = False #boolean value to manage contorl flow
+    teardowncompleted = False #boolean value for teardown
     
 
     
@@ -183,6 +184,8 @@ class dht_manager:
                 msg = self.register_peer(p_name, p_addrv4, m_port, p_port)
                 self.s.sendto(msg.encode(), cmdaddr)
                 #print(self._peersocketinfo)
+
+
                 
             if spltcmnd[0] == 'setup-dht':
                 lead_name = spltcmnd[1]
@@ -200,6 +203,14 @@ class dht_manager:
             if spltcmnd[0] == 'query-dht':    #query-dht leader
                 peer_name = spltcmnd[1]
                 self.query_dht(peer_name, cmdaddr)
+
+            if spltcmnd[0] == 'teardown-dht':
+                peer_name = spltcmnd[1]
+                self.dht_teardown(peer_name, cmdaddr)
+
+            if spltcmnd[0] == 'teardown-complete':
+                peer_name = spltcmnd[1]
+                self.teardown_complete(peer_name, cmdaddr)
 
             
             if spltcmnd[0] == 'join-dht' :
@@ -231,7 +242,6 @@ class dht_manager:
 
 
     #use fuser -k [PORT]/tcp  to kill processs on a port if u cant reuse it
-             
 
     def query_dht(self, peer_name, sendaddr):
 
@@ -244,8 +254,6 @@ class dht_manager:
                 break
             index +=1
 
-                
-            
         if peerindex == -1 or self._peersocketinfo[peerindex]["state"] != self._states[0] or not self.dht_complete:
             self.s.sendto(b'FAILURE', sendaddr)
             return
@@ -293,10 +301,54 @@ class dht_manager:
     # def dht_rebuilt(self, peer_name, new_leader):
 
 
+    def dht_teardown(self, peer_name, sendaddr):
 
-    # def dht_teardown(self, peer_name):
+        # check if peer is leader
+        if peer_name != self._peersocketinfo[self.leader_index]["name"]:
+            self.s.sendto(b'FAILURE', sendaddr)
+            return
+        else:
+            self.s.sendto(b'SUCCESS', sendaddr)
+            message = "teardown"
+            self._peersocketinfo[self.leader_index].peerprocess.peersocket.sendto(message.encode(), sendaddr) # leader sends teardown command
 
-    # def teardown_complete(self, peer_name):
+
+        # wait for teardown-complete
+        while True:
+            message, cmdaddr = self.s.recvfrom(1024)
+
+            if cmdaddr == sendaddr and message.decode() == 'teardown-complete':
+                self.teardowncompleted = True
+                print('teardown-complete')
+                return
+            else:
+                self.s.sendto(b'FAILURE', cmdaddr)
+
+
+
+
+
+
+
+    def teardown_complete(self, peer_name, sendaddr):
+        index = 0
+        peer_index = -1
+
+        # set each peer involved in maintaining DHT to "Free"
+        for x in self._peerdhtlist:
+            x["state"] = self._states[0]
+            index += 1
+
+        sendaddr = ('0', 0)
+        if peer_index != -1:
+            sendaddr = (self._peersocketinfo[peer_index]["ipv4addr"], self._peersocketinfo[peer_index]["mport"])
+
+        if self.teardowncompleted and peer_index != -1:
+            self.s.sendto(b'SUCCESS', sendaddr)
+        else:
+            self.s.sendto(b'FAILURE', sendaddr)
+
+
 
 
 
@@ -310,7 +362,7 @@ if len(sys.argv) != 2:
     print("usage: python .'\'socket.py <port>")
 
 else:
-    PORT = int(sys.argv[1])   #port number paramer when open sockets.py
+    PORT = int(sys.argv[1])   #port number parameter when open sockets.py
     manager = dht_manager()
     manager.manager_start(PORT) #manager_start(port) in class def
      
